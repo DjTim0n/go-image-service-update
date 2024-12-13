@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  imageservice:
+    container_name: imageservice
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7776:8080"
+    volumes:
+      - ./images:/app/images
