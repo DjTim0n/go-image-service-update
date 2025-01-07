@@ -30,7 +30,6 @@ func createResponse(filename string, folder *string) gin.H {
 		"original": BASEURL + filename,
 		"320px":    BASEURL + "320px_" + filename,
 		"480px":    BASEURL + "480px_" + filename,
-		"1000px":   BASEURL + "1000px_" + filename,
 	}
 
 	return gin.H{
@@ -40,20 +39,25 @@ func createResponse(filename string, folder *string) gin.H {
 	}
 }
 
-func uploadImageToFolder(c *gin.Context, folder *string) {
+func uploadImageToFolder(c *gin.Context, folder string) {
 	file, _ := c.FormFile("image")
+	c.SaveUploadedFile(file, "images/"+folder+"/"+file.Filename)
+	resizeImage(320, file.Filename, &folder)
+	resizeImage(480, file.Filename, &folder)
 
-	if folder != nil {
-		c.SaveUploadedFile(file, "images/"+*folder+"/"+file.Filename)
-	} else {
-		c.SaveUploadedFile(file, "images/"+file.Filename)
-	}
+	response := createResponse(file.Filename, &folder)
+	c.IndentedJSON(http.StatusOK, response)
 
-	resizeImage(320, file.Filename, folder)
-	resizeImage(480, file.Filename, folder)
-	resizeImage(1000, file.Filename, folder)
+}
 
-	response := createResponse(file.Filename, folder)
+func uploadImage(c *gin.Context) {
+	file, _ := c.FormFile("image")
+	c.SaveUploadedFile(file, "images/"+file.Filename)
+
+	resizeImage(320, file.Filename, nil)
+	resizeImage(480, file.Filename, nil)
+
+	response := createResponse(file.Filename, nil)
 	c.IndentedJSON(http.StatusOK, response)
 
 }
@@ -101,24 +105,22 @@ func resizeImage(width int, filename string, folder *string) string {
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
-
+	// Выводим в консоль порт, на котором будет работать сервер
 	port := ":8080"
 	fmt.Printf("Server is running on port %s\n", port)
 
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"*"},
-		AllowHeaders:     []string{"*"},
-		ExposeHeaders:    []string{"*"},
-		AllowCredentials: true,
+		AllowOrigins:     []string{"*"}, // Разрешённые домены
+		AllowMethods:     []string{"*"}, // Разрешённые методы
+		AllowHeaders:     []string{"*"}, // Разрешённые заголовки
+		ExposeHeaders:    []string{"*"}, // Заголовки для клиента
+		AllowCredentials: true,          // Разрешить куки
 	}))
 
-	router.POST("/uploadImage", func(c *gin.Context) {
-		uploadImageToFolder(c, nil)
-	})
+	router.POST("/uploadImage", uploadImage)
 	router.POST("/uploadImage/:folder", func(c *gin.Context) {
 		folder := c.Param("folder")
-		uploadImageToFolder(c, &folder)
+		uploadImageToFolder(c, folder)
 	})
 	router.Static("/images", "./images")
 	router.Run(port)
